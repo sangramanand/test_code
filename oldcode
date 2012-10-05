@@ -1,0 +1,113 @@
+OLD CODE
+--------
+
+crontriggerexample.java
+package com.generalsentiment.test.quartz;
+
+import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
+
+import java.util.Date;
+import java.util.Properties;
+
+import org.quartz.CronTrigger;
+import org.quartz.JobDetail;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerFactory;
+import org.quartz.SchedulerMetaData;
+import org.quartz.impl.StdSchedulerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CronTriggerExample {
+
+    public void run() throws Exception {
+        Logger log = LoggerFactory.getLogger(CronTriggerExample.class);
+
+        System.out.println("------- Initializing -------------------");
+
+        Xml config = new Xml("src/hibernate.cfg.xml", "hibernate-configuration");
+
+        Properties prop = new Properties();
+        prop.setProperty("org.quartz.scheduler.instanceName", "ALARM_SCHEDULER");
+        prop.setProperty("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
+        prop.setProperty("org.quartz.threadPool.threadCount", "4");
+        prop.setProperty("org.quartz.threadPool.threadsInheritContextClassLoaderOfInitializingThread", "true");
+
+        prop.setProperty("org.quartz.jobStore.class", "	org.quartz.impl.jdbcjobstore.JobStoreCMT");
+        prop.setProperty("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.StdJDBCDelegate");
+        prop.setProperty("org.quartz.jobStore.dataSource", "tasksDataStore");
+        prop.setProperty("org.quartz.jobStore.nonManagedTXDataSource", "tasksDataStore");
+        prop.setProperty("org.quartz.jobStore.tablePrefix", "QRTZ_");
+        prop.setProperty("org.quartz.jobStore.misfireThreshold", "60000");
+        prop.setProperty("org.quartz.jobStore.isClustered", "false");
+
+        prop.setProperty("org.quartz.dataSource.tasksDataStore.driver", config.child("session-factory").
+                children("property").get(1).content());
+        prop.setProperty("org.quartz.dataSource.tasksDataStore.URL", config.child("session-factory").
+                children("property").get(2).content());
+        prop.setProperty("org.quartz.dataSource.tasksDataStore.user", config.child("session-factory").
+                children("property").get(3).content());
+        prop.setProperty("org.quartz.dataSource.tasksDataStore.password", config.child("session-factory").
+                children("property").get(4).content());
+        prop.setProperty("org.quartz.dataSource.tasksDataStore.maxConnections", "20");
+
+        // First we must get a reference to a scheduler
+        SchedulerFactory sf = new StdSchedulerFactory(prop);
+        Scheduler sched = sf.getScheduler();
+
+        System.out.println("------- Initialization almost Complete --------");
+
+        System.out.println("------- Scheduling Jobs ----------------");
+
+        // jobs can be scheduled before sched.start() has been called
+
+        // job 1 will run exactly at 12:55 daily
+        JobDetail job = newJob(SimpleJob.class).withIdentity("job5", "group1").build();
+
+        CronTrigger trigger = newTrigger().withIdentity("trigger5", "group1").withSchedule(cronSchedule("00 15 15 * * ?")).build();
+
+        Date ft = sched.scheduleJob(job, trigger);
+        System.out.println(sched.getSchedulerName());
+        System.out.println(job.getKey() + " has been scheduled to run at: " + ft
+                + " and repeat based on expression: "
+                + trigger.getCronExpression());
+
+        System.out.println("------- Starting Scheduler ----------------");
+
+        /*
+         * All of the jobs have been added to the scheduler, but none of the
+         * jobs will run until the scheduler has been started. If you have
+         * multiple jobs performing multiple tasks, then its recommended to
+         * write it in separate classes, like SimpleJob.class writes
+         * organization members to file.
+         */
+        sched.start();
+
+        System.out.println("------- Started Scheduler -----------------");
+
+        System.out.println("------- Waiting five minutes... ------------");
+        try {
+            // wait five minutes to show jobs
+            Thread.sleep(300L * 1000L);
+            // executing...
+        } catch (Exception e) {
+        }
+
+        System.out.println("------- Shutting Down ---------------------");
+
+        sched.shutdown(true);
+
+        System.out.println("------- Shutdown Complete -----------------");
+
+        SchedulerMetaData metaData = sched.getMetaData();
+
+
+        System.out.println("Executed " + metaData.getNumberOfJobsExecuted() + " jobs.");
+
+    }
+}
+
+
+
